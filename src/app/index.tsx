@@ -1,98 +1,193 @@
-import * as Device from 'expo-device';
-import { Platform, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useState } from "react";
+import { router } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-import { AnimatedIcon } from '@/components/animated-icon';
-import { HintRow } from '@/components/hint-row';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import {
+  View,
+  Text,
+  ImageBackground,
+  Image,
+  TextInput,
+  Pressable,
+  ScrollView,
+} from "react-native";
 
-function getDevMenuHint() {
-  if (Platform.OS === 'web') {
-    return <ThemedText type="small">use browser devtools</ThemedText>;
+import globalStyle from "@/styles/globalStyle";
+import loginStyle from "@/styles/loginStyle";
+
+import { API } from "@/config/api";
+
+export default function LoginScreen() {
+  const [verSenha, setVerSenha] = useState(false);
+
+  const [email, setEmail] = useState("");
+  const [senha, setSenha] = useState("");
+  const [mensagem, setMensagem] = useState("");
+  const [carregando, setCarregando] = useState(false);
+
+  async function mostrarMensagem(texto: string){
+    setMensagem(texto);
+
+    setTimeout(() =>{
+      setMensagem("");
+    }, 5000);
   }
-  if (Device.isDevice) {
-    return (
-      <ThemedText type="small">
-        shake device or press <ThemedText type="code">m</ThemedText> in terminal
-      </ThemedText>
-    );
+
+  async function nomeDoDispositivo() {
+    let id = await AsyncStorage.getItem("device_id");
+    if (!id) {
+      id = `app-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      await AsyncStorage.setItem("device_id", id);
+    }
+    return id;
   }
-  const shortcut = Platform.OS === 'android' ? 'cmd+m (or ctrl+m)' : 'cmd+d';
+
+  async function fazerLogin() {
+    if (!email.trim() || !senha) {
+      mostrarMensagem("Informe e-mail e senha.");
+      return;
+    }
+
+    setCarregando(true);
+
+    try {
+      const resposta = await fetch(`${API}/auth/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          email: email.trim(),
+          senha: senha,
+          device_name: await nomeDoDispositivo(),
+        }),
+      });
+
+      const json = await resposta.json();
+
+      // 401 senha errada | 403 inativo | 422 campos | 429 tentativas
+      if (!resposta.ok || !json.success) {
+        mostrarMensagem(json.message);
+        return;
+      }
+
+      await AsyncStorage.setItem("token", json.data.token);
+
+      router.replace("/home");
+    } catch (erro) {
+      console.log("Erro ao realizar login:", erro);
+      mostrarMensagem("Não foi possível conectar ao servidor.");
+    } finally {
+      setCarregando(false);
+    }
+  }
+
   return (
-    <ThemedText type="small">
-      press <ThemedText type="code">{shortcut}</ThemedText>
-    </ThemedText>
+    <View style={globalStyle.container}>
+      <ImageBackground
+        source={require("@/assets/images/img/00_fundo.png")}
+        style={globalStyle.background}
+        resizeMode="stretch"
+      >
+        <SafeAreaView style={globalStyle.areaConteudo}>
+          <ScrollView style={globalStyle.scrollConteudo}>
+            <View style={loginStyle.conteudo}>
+              <Image
+                source={require("@/assets/images/img/logo/logo.png")}
+                style={loginStyle.logo}
+              />
+              <Text style={loginStyle.titulo}>Bem-vindo(a)!</Text>
+              <Text style={loginStyle.subtitulo}>
+                Faça seu login para continuar
+              </Text>
+              {/* Formulario */}
+              <View style={loginStyle.form}>
+                <View style={loginStyle.input}>
+                  <Image
+                    source={require("@/assets/images/img/icones/email.png")}
+                    style={loginStyle.icone}
+                  />
+                  <TextInput
+                    placeholder="E-mail"
+                    placeholderTextColor="#888888"
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    style={loginStyle.textInput}
+                    value={email}
+                    onChangeText={setEmail}
+                  />
+                </View>
+
+                <View style={loginStyle.input}>
+                  <Image
+                    source={require("@/assets/images/img/icones/senha.png")}
+                    style={loginStyle.icone}
+                  />
+                  <TextInput
+                    placeholder="Senha"
+                    placeholderTextColor="#888888"
+                    style={loginStyle.textInput}
+                    secureTextEntry={!verSenha}
+                    value={senha}
+                    onChangeText={setSenha}
+                  />
+                  <Pressable
+                    style={loginStyle.btnMostrarSenha}
+                    onPress={() => setVerSenha((current) => !current)}
+                  >
+                    <Image
+                      source={
+                        verSenha
+                          ? require("@/assets/images/img/icones/esconder.png")
+                          : require("@/assets/images/img/icones/mostrar.png")
+                      }
+                      style={loginStyle.mostrarSenha}
+                    />
+                  </Pressable>
+                </View>
+
+                <Pressable
+                  style={loginStyle.btnEsqueciSenha}
+                  onPress={() => router.navigate("/esqueci-senha")}
+                >
+                  <Text style={loginStyle.txtEsqueciSenha}>
+                    Esqueci minha senha
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  style={({ pressed }) => [
+                    loginStyle.btnEntrar,
+                    pressed && loginStyle.btnEntrarPressed,
+                  ]}
+                  onPress={fazerLogin}
+                  disabled={carregando}
+                >
+                  <Text style={loginStyle.textoEntrar}>Entrar</Text>
+                </Pressable>
+
+                <View style={loginStyle.separador}>
+                  <View style={loginStyle.linha}></View>
+                  <Text style={loginStyle.textoSeparador}>ou</Text>
+                  <View style={loginStyle.linha}></View>
+                </View>
+
+                <Pressable
+                  style={({ pressed }) => [
+                    loginStyle.btnCriar,
+                    pressed && loginStyle.btnCriarPressed,
+                  ]}
+                  onPress={() => router.navigate("/cad-cliente")}
+                >
+                  <Text style={loginStyle.textoCriar}>Criar conta</Text>
+                </Pressable>
+              </View>
+            </View>
+          </ScrollView>
+        </SafeAreaView>
+      </ImageBackground>
+    </View>
   );
 }
-
-export default function HomeScreen() {
-  return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.heroSection}>
-          <AnimatedIcon />
-          <ThemedText type="title" style={styles.title}>
-            Welcome to&nbsp;Expo
-          </ThemedText>
-        </ThemedView>
-
-        <ThemedText type="code" style={styles.code}>
-          get started
-        </ThemedText>
-
-        <ThemedView type="backgroundElement" style={styles.stepContainer}>
-          <HintRow
-            title="Try editing"
-            hint={<ThemedText type="code">src/app/index.tsx</ThemedText>}
-          />
-          <HintRow title="Dev tools" hint={getDevMenuHint()} />
-          <HintRow
-            title="Fresh start"
-            hint={<ThemedText type="code">npm run reset-project</ThemedText>}
-          />
-        </ThemedView>
-
-        {Platform.OS === 'web' && <WebBadge />}
-      </SafeAreaView>
-    </ThemedView>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    flexDirection: 'row',
-  },
-  safeArea: {
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
-    maxWidth: MaxContentWidth,
-  },
-  heroSection: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.four,
-  },
-  title: {
-    textAlign: 'center',
-  },
-  code: {
-    textTransform: 'uppercase',
-  },
-  stepContainer: {
-    gap: Spacing.three,
-    alignSelf: 'stretch',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.four,
-    borderRadius: Spacing.four,
-  },
-});
