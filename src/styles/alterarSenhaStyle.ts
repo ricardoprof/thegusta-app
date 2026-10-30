@@ -193,7 +193,7 @@ const alterarSenhaStyle = StyleSheet.create({
     resizeMode: "contain",
   },
 
-  iconeOpcao:{
+  iconeOpcao: {
     width: 50,
     height: 50,
   },
@@ -232,7 +232,6 @@ const alterarSenhaStyle = StyleSheet.create({
     fontSize: 9,
     color: cores.cinza,
     marginTop: 1,
-    
   },
 
   /* ==============================
@@ -296,6 +295,13 @@ const alterarSenhaStyle = StyleSheet.create({
     fontFamily: fontes.negrito,
     fontSize: 12,
     color: cores.preto,
+  },
+
+  erroSalvar: {
+    color: "red",
+    fontSize: 13,
+    textAlign: "center",
+    marginBottom: 10,
   },
 });
 

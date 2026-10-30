@@ -11,6 +11,7 @@ import {
   TextInput,
   Pressable,
   ScrollView,
+  Modal,
 } from "react-native";
 
 import globalStyle from "@/styles/globalStyle";
@@ -24,12 +25,13 @@ export default function LoginScreen() {
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [mensagem, setMensagem] = useState("");
+  const [modalVisivel, setModalVisivel] = useState(false);
   const [carregando, setCarregando] = useState(false);
 
-  async function mostrarMensagem(texto: string){
+  async function mostrarMensagem(texto: string) {
     setMensagem(texto);
 
-    setTimeout(() =>{
+    setTimeout(() => {
       setMensagem("");
     }, 5000);
   }
@@ -156,6 +158,10 @@ export default function LoginScreen() {
                     Esqueci minha senha
                   </Text>
                 </Pressable>
+
+                {mensagem ? (
+                  <Text style={loginStyle.erroLogin}>{mensagem}</Text>
+                ) : null}
 
                 <Pressable
                   style={({ pressed }) => [

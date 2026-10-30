@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { router } from "expo-router";
-
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import {
@@ -17,6 +17,7 @@ import globalStyle from "@/styles/globalStyle";
 import cadClienteStyle from "@/styles/cadClienteStyle";
 
 import TermosUsoModal from "@/components/termosUsoModal";
+import { API } from "@/config/api";
 
 export default function CadClienteScreen() {
   const [verSenha, setVerSenha] = useState(false);
@@ -24,6 +25,103 @@ export default function CadClienteScreen() {
   const [aceitarTermos, setAceitarTermos] = useState(false);
 
   const [modalTermosUso, setModalTermosUso] = useState(false);
+
+  // Dados do cadastro
+  const [nome, setNome] = useState("");
+  const [email, setEmail] = useState("");
+  const [telefone, setTelefone] = useState("");
+  const [senha, setSenha] = useState("");
+  const [confirmarSenha, setConfirmarSenha] = useState("");
+
+  // Controle do formulário
+  const [carregando, setCarregando] = useState(false);
+  const [mensagem, setMensagem] = useState("");
+
+  async function nomeDoDispositivo() {
+    let id = await AsyncStorage.getItem("device_id");
+
+    if (!id) {
+      id = `app-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+      await AsyncStorage.setItem("device_id", id);
+    }
+
+    return id;
+  }
+
+  async function cadastrar() {
+    // Verificar campos obrigatórios
+    if (
+      !nome.trim() ||
+      !email.trim() ||
+      !telefone.trim() ||
+      !senha ||
+      !confirmarSenha
+    ) {
+      setMensagem("Preencha todos os campos.");
+      return;
+    }
+
+    // Verificar tamanho da senha
+    if (senha.length < 8) {
+      setMensagem("A senha deve ter pelo menos 8 caracteres.");
+      return;
+    }
+
+    // Verificar confirmação da senha
+    if (senha !== confirmarSenha) {
+      setMensagem("As senhas não correspondem.");
+      return;
+    }
+
+    // Verificar aceite dos termos
+    if (!aceitarTermos) {
+      setMensagem("Aceite os termos de uso para continuar.");
+      return;
+    }
+
+    setCarregando(true);
+    setMensagem("");
+
+    try {
+      const resposta = await fetch(`${API}/auth/cadastro`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          nome: nome.trim(),
+          email: email.trim(),
+          telefone: telefone.trim(),
+          senha: senha,
+          aceite_termo: aceitarTermos,
+          device_name: await nomeDoDispositivo(),
+        }),
+      });
+
+      const json = await resposta.json();
+
+      // Verificar erros retornados pela API
+      if (!resposta.ok || !json.success) {
+        setMensagem(json.message || "Erro ao cadastrar cliente.");
+        return;
+      }
+
+      // Salvar os dados retornados pela API
+      await AsyncStorage.setItem("token", json.data.token);
+
+      await AsyncStorage.setItem("cliente", JSON.stringify(json.data.cliente));
+
+      // Direcionar para a Home
+      router.replace("/home");
+    } catch (erro) {
+      console.log("Erro ao cadastrar cliente:", erro);
+      setMensagem("Não foi possível conectar ao servidor.");
+    } finally {
+      setCarregando(false);
+    }
+  }
 
   return (
     <View style={globalStyle.container}>
@@ -54,6 +152,8 @@ export default function CadClienteScreen() {
                     placeholder="Nome completo"
                     placeholderTextColor="#888888"
                     style={cadClienteStyle.textInput}
+                    value={nome}
+                    onChangeText={setNome}
                   />
                 </View>
 
@@ -68,6 +168,8 @@ export default function CadClienteScreen() {
                     keyboardType="email-address"
                     autoCapitalize="none"
                     style={cadClienteStyle.textInput}
+                    value={email}
+                    onChangeText={setEmail}
                   />
                 </View>
 
@@ -81,6 +183,8 @@ export default function CadClienteScreen() {
                     placeholderTextColor="#888888"
                     keyboardType="phone-pad"
                     style={cadClienteStyle.textInput}
+                    value={telefone}
+                    onChangeText={setTelefone}
                   />
                 </View>
 
@@ -94,6 +198,8 @@ export default function CadClienteScreen() {
                     placeholderTextColor="#888888"
                     style={cadClienteStyle.textInput}
                     secureTextEntry={!verSenha}
+                    value={senha}
+                    onChangeText={setSenha}
                   />
                   <Pressable
                     style={cadClienteStyle.btnMostrarSenha}
@@ -120,6 +226,8 @@ export default function CadClienteScreen() {
                     placeholderTextColor="#888888"
                     style={cadClienteStyle.textInput}
                     secureTextEntry={!verConfirmarSenha}
+                    value={confirmarSenha}
+                    onChangeText={setConfirmarSenha}
                   />
                   <Pressable
                     style={cadClienteStyle.btnMostrarSenha}
@@ -160,14 +268,21 @@ export default function CadClienteScreen() {
                   </Pressable>
                 </View>
 
+                {mensagem ? (
+                  <Text style={cadClienteStyle.erroCadastro}>{mensagem}</Text>
+                ) : null}
+
                 <Pressable
                   style={({ pressed }) => [
                     cadClienteStyle.btnCriar,
                     pressed && cadClienteStyle.btnCriarPressed,
                   ]}
-                  onPress={() => router.navigate("/")}
+                  onPress={cadastrar}
+                  disabled={carregando}
                 >
-                  <Text style={cadClienteStyle.textoCriar}>Criar conta</Text>
+                  <Text style={cadClienteStyle.textoCriar}>
+                    {carregando ? "Cadastrando..." : "Criar conta"}
+                  </Text>
                 </Pressable>
 
                 <View style={cadClienteStyle.separador}>
@@ -183,7 +298,9 @@ export default function CadClienteScreen() {
                   ]}
                   onPress={() => router.navigate("/")}
                 >
-                  <Text style={cadClienteStyle.textoTenhoConta}>Já tenho conta</Text>
+                  <Text style={cadClienteStyle.textoTenhoConta}>
+                    Já tenho conta
+                  </Text>
                 </Pressable>
               </View>
             </View>

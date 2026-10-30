@@ -27,7 +27,13 @@ export default function PerfilScreen() {
   const [cliente, setCliente] = useState<any>(null);
 
   const [modalFoto, setModalFoto] = useState(false);
-  const [imagem, setImagem] = useState<string | null>(null);
+  // ALTERAR O ESTADO ABAIXO
+  // const [imagem, setImagem] = useState<string | null>(null);
+
+  const [imagem, setImagem] = useState<ImagePicker.ImagePickerAsset | null>(
+    null,
+  );
+  const [enviandoFoto, setEnviandoFoto] = useState(false);
 
   const [nome, setNome] = useState("");
   const [cpf, setCpf] = useState("");
@@ -44,44 +50,51 @@ export default function PerfilScreen() {
   };
 
   const tirarFoto = async () => {
+    if (enviandoFoto) return;
     setModalFoto(false);
-
-    if (Platform.OS !== "web") {
-      const permissao = await ImagePicker.requestCameraPermissionsAsync();
-
-      if (!permissao.granted) {
-        Alert.alert(
-          "Permissão necessária",
-          "É necessário permitir o acesso à câmera.",
-        );
-        return;
+    try {
+      if (Platform.OS !== "web") {
+        const permissao = await ImagePicker.requestCameraPermissionsAsync();
+        if (!permissao.granted) {
+          setMensagem("É necessário permitir o acesso à câmera.");
+          return;
+        }
       }
-    }
-
-    const resultado = await ImagePicker.launchCameraAsync({
-      mediaTypes: ["images"],
-      allowsEditing: true,
-      quality: 1,
-    });
-
-    if (!resultado.canceled) {
+      const resultado = await ImagePicker.launchCameraAsync({
+        mediaTypes: ["images"],
+        allowsEditing: true,
+        quality: 0.7,
+      });
+      if (resultado.canceled) return;
       const foto = resultado.assets[0];
-
-      setImagem(foto.uri);
+      setImagem(foto);
+      await enviarFoto(foto);
+      setImagem(null);
+    } catch (erro) {
+      console.log("Erro ao capturar foto:", erro);
+      setImagem(null);
+      setMensagem("Não foi possível abrir a câmera.");
     }
   };
 
   const selecionarGaleria = async () => {
-    const resultado = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["images"],
-      allowsEditing: true,
-      quality: 1,
-    });
-
-    if (!resultado.canceled) {
+    if (enviandoFoto) return;
+    setModalFoto(false);
+    try {
+      const resultado = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        allowsEditing: true,
+        quality: 0.7,
+      });
+      if (resultado.canceled) return;
       const foto = resultado.assets[0];
-
-      setImagem(foto.uri);
+      setImagem(foto);
+      await enviarFoto(foto);
+      setImagem(null);
+    } catch (erro) {
+      console.log("Erro ao selecionar foto:", erro);
+      setImagem(null);
+      setMensagem("Não foi possível selecionar a imagem.");
     }
   };
 
@@ -254,15 +267,81 @@ export default function PerfilScreen() {
 
       if (!resposta.ok || !json.success) {
         setMensagem(json.message || "Erro ao atualizar o perfil.");
+        return;
       }
-      
-      setCliente(json.data);      
+
+      setCliente(json.data);
       router.replace("/config");
     } catch (erro) {
       console.log("Erro ao salvar perfil:", erro);
       setMensagem("Não foi possível conectar ao servidor.");
     } finally {
       setCarregando(false);
+    }
+  }
+
+  async function enviarFoto(foto: ImagePicker.ImagePickerAsset): Promise<boolean> {
+    const tipo = foto.mimeType ?? "image/jpeg";
+    const tiposAceitos = ["image/jpeg", "image/png", "image/webp"];
+
+    if (!tiposAceitos.includes(tipo)) {
+      setMensagem("Escolha uma imagem JPG, PNG ou WEBP.");
+      return false;
+    }
+    if (foto.fileSize && foto.fileSize > 2 * 1024 * 1024) {
+      setMensagem("A imagem deve ter no máximo 2 MB.");
+      return false;
+    }
+
+    setEnviandoFoto(true);
+    setMensagem("");
+    try {
+      const token = await AsyncStorage.getItem("token");
+      if (!token) {
+        router.replace("/");
+        return false;
+      }
+
+      const form = new FormData();
+      const extensao =
+        tipo === "image/png" ? "png" : tipo === "image/webp" ? "webp" : "jpg";
+      const nomeArquivo = foto.fileName ?? `foto.${extensao}`;
+
+      if (Platform.OS === "web") {
+        const arquivo = await fetch(foto.uri).then((r) => r.blob());
+        form.append("foto_cliente", arquivo, nomeArquivo);
+      } else {
+        form.append("foto_cliente", {
+          uri: foto.uri,
+          name: nomeArquivo,
+          type: tipo,
+        } as any);
+      }
+
+      const resposta = await fetch(`${API}/cliente/foto`, {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: form,
+      });
+      const json = await resposta.json();
+
+      if (!resposta.ok || !json.success || !json.data?.foto_cliente) {
+        setMensagem(json.message || "Não foi possível atualizar a foto.");
+        return false;
+      }
+
+      setCliente((anterior: any) => ({ ...anterior, ...json.data }));
+      setMensagem("Foto atualizada com sucesso.");
+      return true;
+    } catch (erro) {
+      console.log("Erro ao enviar foto:", erro);
+      setMensagem("Não foi possível conectar ao servidor.");
+      return false;
+    } finally {
+      setEnviandoFoto(false);
     }
   }
 
@@ -311,14 +390,10 @@ export default function PerfilScreen() {
                       style={perfilStyle.fotoPerfil}
                       source={
                         imagem
-                          ? { uri: imagem }
+                          ? { uri: imagem.uri }
                           : cliente?.foto_cliente
                             ? { uri: `${IMAGEM}/${cliente.foto_cliente}` }
-                            : {
-                                uri:
-                                  `${IMAGEM}/cliente/user.png` ||
-                                  require("@/assets/images/img/icones/user.png"),
-                              }
+                            : require("@/assets/images/img/icones/user.png")
                       }
                     />
                   </View>
@@ -332,8 +407,9 @@ export default function PerfilScreen() {
                   <Pressable
                     style={perfilStyle.btnAlterar}
                     onPress={escolherFoto}
+                    disabled={enviandoFoto}
                   >
-                    <Text style={perfilStyle.txtAlterar}>Alterar foto</Text>
+                    <Text style={perfilStyle.txtAlterar}>{enviandoFoto ? "Enviando..." : "Alterar foto"}</Text>
                   </Pressable>
                 </View>
 
@@ -429,11 +505,15 @@ export default function PerfilScreen() {
                       </Text>
 
                       <TextInput
-                        placeholder={cliente?.data_nasc_cliente
-                          .substring(0, 10)
-                          .split("-")
-                          .reverse()
-                          .join("/")}
+                        placeholder={
+                          cliente?.data_nasc_cliente
+                            ? cliente.data_nasc_cliente
+                                .substring(0, 10)
+                                .split("-")
+                                .reverse()
+                                .join("/")
+                            : "Data de nascimento"
+                        }
                         placeholderTextColor={cores.cinza}
                         style={perfilStyle.txtCaixa}
                         value={dataNascimento}

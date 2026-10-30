@@ -18,9 +18,54 @@ import esqueciSenhaStyle from "@/styles/esqueciSenhaStyle";
 
 import EnviarLinkModal from "@/components/enviarLinkModal";
 
+import { API } from "@/config/api";
+
 export default function EsqueciSenhaScreen() {
   const [modalEnviarLink, setModalEnviarLink] = useState(false);
-  
+
+  const [email, setEmail] = useState("");
+  const [carregando, setCarregando] = useState(false);
+  const [mensagem, setMensagem] = useState("");
+
+  async function solicitarCodigo() {
+    if (!email.trim()) {
+      setMensagem("Informe seu e-mail.");
+      return;
+    }
+
+    setCarregando(true);
+    setMensagem("");
+
+    try {
+      const resposta = await fetch(`${API}/auth/esqueci-senha`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({ email: email.trim() }),
+      });
+
+      const json = await resposta.json();
+
+      if (!resposta.ok || !json.success) {
+        setMensagem(json.message || "Não foi possível solicitar o código.");
+        return;
+      }
+
+      setMensagem(
+        json.message ||
+          "Se o e-mail estiver cadastrado, enviaremos um código de verificação.",
+      );
+      setModalEnviarLink(true);
+    } catch (erro) {
+      console.log("Erro ao solicitar código:", erro);
+      setMensagem("Não foi possível conectar ao servidor.");
+    } finally {
+      setCarregando(false);
+    }
+  }
+
   return (
     <View style={globalStyle.container}>
       <ImageBackground
@@ -37,7 +82,7 @@ export default function EsqueciSenhaScreen() {
               />
               <Text style={esqueciSenhaStyle.titulo}>Esqueci minha senha</Text>
               <Text style={esqueciSenhaStyle.subtitulo}>
-                Informe seu e-mail para receber {"\n"} o link de redefinição
+                Informe seu e-mail para receber {"\n"} o código de redefinição
               </Text>
               {/* Formulario */}
               <View style={esqueciSenhaStyle.form}>
@@ -52,17 +97,28 @@ export default function EsqueciSenhaScreen() {
                     keyboardType="email-address"
                     autoCapitalize="none"
                     style={esqueciSenhaStyle.textInput}
+                    value={email}
+                    onChangeText={setEmail}
                   />
                 </View>
+
+                {mensagem ? (
+                  <Text style={esqueciSenhaStyle.erroSolicitacao}>
+                    {mensagem}
+                  </Text>
+                ) : null}
 
                 <Pressable
                   style={({ pressed }) => [
                     esqueciSenhaStyle.btnEnviar,
                     pressed && esqueciSenhaStyle.btnEnviarPressed,
                   ]}
-                  onPress={() => setModalEnviarLink(true)}
+                  onPress={solicitarCodigo}
+                  disabled={carregando}
                 >
-                  <Text style={esqueciSenhaStyle.textoEnviar}>Enviar link</Text>
+                  <Text style={esqueciSenhaStyle.textoEnviar}>
+                    {carregando ? "Enviando..." : "Enviar código"}
+                  </Text>
                 </Pressable>
 
                 <Pressable
@@ -82,7 +138,15 @@ export default function EsqueciSenhaScreen() {
 
           <EnviarLinkModal
             visible={modalEnviarLink}
-            onClose={() => {router.navigate('/'); setModalEnviarLink(false);}}
+            onClose={() => {
+              router.push({
+                pathname: "/redefinir-senha",
+                params: {
+                  email: email.trim(),
+                },
+              });
+              setModalEnviarLink(false);
+            }}
           />
         </SafeAreaView>
       </ImageBackground>
