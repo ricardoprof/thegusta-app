@@ -53,9 +53,9 @@ const detalheProdutoStyle = StyleSheet.create({
     fontFamily: fontes.negrito,
     marginTop: 10,
   },
-  medidas:{
-    flexDirection: 'row',
-    justifyContent: 'space-between'
+  medidas: {
+    flexDirection: "row",
+    justifyContent: "space-between",
   },
   valorProduto: {
     fontSize: 30,
@@ -134,6 +134,12 @@ const detalheProdutoStyle = StyleSheet.create({
   txtSacola: {
     fontSize: 15,
     fontFamily: fontes.negrito,
+  },
+  erroFavorito: {
+    color: "#CC0000",
+    fontSize: 14,
+    textAlign: "center",
+    marginVertical: 10,
   },
 });
 

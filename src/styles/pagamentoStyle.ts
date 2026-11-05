@@ -4,19 +4,19 @@ import { cores } from "./variaveis";
 import { fontes } from "./variaveis";
 
 const pagamentoStyle = StyleSheet.create({
-  conteudo:{
+  conteudo: {
     marginTop: 50,
     marginBottom: 30,
   },
-  header:{
-    width: '80%',
+  header: {
+    width: "80%",
     margin: "auto",
   },
   conteudoHeader: {
     alignItems: "center",
     justifyContent: "space-between",
     flexDirection: "row",
-    width: '100%',
+    width: "100%",
   },
   titulo: {
     fontSize: 30,
@@ -24,7 +24,7 @@ const pagamentoStyle = StyleSheet.create({
     color: cores.preto,
     textAlign: "center",
     fontFamily: fontes.negrito,
-  },  
+  },
   logo: {
     width: 80,
     height: 75,
@@ -34,243 +34,254 @@ const pagamentoStyle = StyleSheet.create({
     fontSize: 18,
     color: cores.cinza,
   },
-  main:{
-    width: '80%',
+  main: {
+    width: "80%",
     margin: "auto",
     marginTop: 15,
   },
-  endereco:{
-    width: '100%',
+  endereco: {
+    width: "100%",
     backgroundColor: cores.branco,
     paddingVertical: 10,
     paddingHorizontal: 10,
     borderRadius: 10,
     borderColor: cores.laranja,
     borderWidth: 2,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginVertical: 5,
   },
-  imgEndereco:{
-    width: '15%',
+  imgEndereco: {
+    width: "15%",
   },
-  infoEndereco:{
-    width: '60%',
+  infoEndereco: {
+    width: "60%",
   },
-  tituloEndereco:{
+  tituloEndereco: {
     fontFamily: fontes.negrito,
     color: cores.laranja,
     fontSize: 15,
     marginBottom: 5,
   },
-  nomeEndereco:{
+  nomeEndereco: {
     fontFamily: fontes.negrito,
     color: cores.preto,
     fontSize: 12,
-    marginBottom: 5,  
+    marginBottom: 5,
   },
-  enderecoCompleto:{
+  enderecoCompleto: {
     fontFamily: fontes.negrito,
     color: cores.preto,
     fontSize: 10,
     marginBottom: 5,
   },
-  localCompleto:{
+  localCompleto: {
     fontFamily: fontes.comum,
     color: cores.preto,
     fontSize: 10,
     marginBottom: 5,
   },
-  telefone:{
+  telefone: {
     fontFamily: fontes.comum,
     color: cores.preto,
     fontSize: 10,
     marginBottom: 5,
-  },  
-  txtAlterar:{
+  },
+  txtAlterar: {
     fontFamily: fontes.negrito,
     color: cores.laranja,
     fontSize: 11,
-    textDecorationLine: 'underline',
+    textDecorationLine: "underline",
     textDecorationColor: cores.laranja,
-  },  
-  areaEntrega:{
-    width: '100%',
+  },
+  areaEntrega: {
+    width: "100%",
     backgroundColor: cores.branco,
     paddingVertical: 10,
     paddingHorizontal: 10,
     borderRadius: 10,
     borderColor: cores.laranja,
     borderWidth: 2,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginVertical: 5,
   },
-  imgEntrega:{
-    width: '15%',
+  imgEntrega: {
+    width: "15%",
   },
-  infoEntrega:{
-    width: '60%',
+  infoEntrega: {
+    width: "60%",
   },
-  tituloEntrega:{
+  tituloEntrega: {
     fontFamily: fontes.negrito,
     color: cores.laranja,
     fontSize: 15,
     marginBottom: 5,
   },
-  btnEntregaRetira:{
-    width: '100%',
+  btnEntregaRetira: {
+    width: "100%",
     height: 30,
-    flexDirection: 'row',
+    flexDirection: "row",
   },
-  btnEntrega:{
-    width: '50%',
-    height: '100%',
+  btnEntrega: {
+    width: "50%",
+    height: "100%",
     borderTopLeftRadius: 10,
     borderBottomLeftRadius: 10,
     borderColor: cores.laranja,
     borderWidth: 2,
     backgroundColor: cores.laranja,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
-  txtEntrega:{
+  txtEntrega: {
     fontFamily: fontes.negrito,
-    color: cores.preto
+    color: cores.preto,
   },
-  btnRetira:{
-    width: '50%',
-    height: '100%',
+  btnRetira: {
+    width: "50%",
+    height: "100%",
     borderTopRightRadius: 10,
     borderBottomRightRadius: 10,
     borderColor: cores.laranja,
     borderWidth: 2,
     backgroundColor: cores.branco,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
-  txtRetira:{
+  txtRetira: {
     fontFamily: fontes.comum,
     color: cores.preto,
   },
-  previsao:{
-    width: '20%',
-    justifyContent: 'center',
-    alignItems: 'center'
+  camposDataHora:{
+    flex: 1,
   },
-  tempoEntrega:{
+  txtDataHora: {
+    borderWidth: 1,
+    borderColor: "#CCCCCC",
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    height: 45,
+    fontSize: 15,
+  },
+  previsao: {
+    width: "20%",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  tempoEntrega: {
     fontFamily: fontes.negrito,
     color: cores.preto,
     fontSize: 10,
   },
-  txtPrevisao:{
+  txtPrevisao: {
     fontFamily: fontes.comum,
     color: cores.cinza,
     fontSize: 10,
   },
-  areaPagamento:{
-    width: '100%',
+  areaPagamento: {
+    width: "100%",
     backgroundColor: cores.branco,
     paddingVertical: 10,
     paddingHorizontal: 10,
     borderRadius: 10,
     borderColor: cores.laranja,
     borderWidth: 2,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginVertical: 5,
   },
-  imgPagamento:{
-    width: '12%',
-    height: '60%',
+  imgPagamento: {
+    width: "12%",
+    height: "60%",
   },
-  infoPagamento:{
-    width: '75%',
+  infoPagamento: {
+    width: "75%",
   },
-  tituloPagamento:{
+  tituloPagamento: {
     fontFamily: fontes.negrito,
     color: cores.laranja,
     fontSize: 15,
     marginBottom: 5,
   },
-  btnPagamento:{
-    width: '100%',
+  btnPagamento: {
+    width: "100%",
     height: 30,
-    flexDirection: 'row',
+    flexDirection: "row",
   },
-  btnPix:{
-    width: '33%',
-    height: '100%',
+  btnPix: {
+    width: "33%",
+    height: "100%",
     borderTopLeftRadius: 10,
     borderBottomLeftRadius: 10,
     borderColor: cores.laranja,
     borderWidth: 2,
     backgroundColor: cores.laranja,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
-  txtPix:{
+  txtPix: {
     fontFamily: fontes.negrito,
-    color: cores.preto
+    color: cores.preto,
   },
-  btnCartao:{
-    width: '33%',
-    height: '100%',
+  btnCartao: {
+    width: "33%",
+    height: "100%",
     borderColor: cores.laranja,
     borderWidth: 2,
     backgroundColor: cores.branco,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
-  txtCartao:{
+  txtCartao: {
     fontFamily: fontes.comum,
     color: cores.preto,
   },
-  btnDinheiro:{
-    width: '33%',
-    height: '100%',
+  btnDinheiro: {
+    width: "33%",
+    height: "100%",
     borderTopRightRadius: 10,
     borderBottomRightRadius: 10,
     borderColor: cores.laranja,
     borderWidth: 2,
     backgroundColor: cores.branco,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
-  txtDinheiro:{
+  txtDinheiro: {
     fontFamily: fontes.comum,
     color: cores.preto,
   },
-  areaObservacao:{
-    width: '100%',
+  areaObservacao: {
+    width: "100%",
     backgroundColor: cores.branco,
     paddingVertical: 10,
     paddingHorizontal: 10,
     borderRadius: 10,
     borderColor: cores.laranja,
     borderWidth: 2,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginVertical: 5,
   },
-  imgObservacao:{
-    width: '12%',
-    height: '60%',
+  imgObservacao: {
+    width: "12%",
+    height: "60%",
   },
-  observacao:{
-    width: '75%',
+  observacao: {
+    width: "75%",
   },
-  tituloObservacao:{
+  tituloObservacao: {
     fontFamily: fontes.negrito,
     color: cores.laranja,
     fontSize: 15,
     marginBottom: 5,
   },
-  txtObservacao:{
+  txtObservacao: {
     height: 30,
     borderColor: cores.laranja,
     borderWidth: 2,
@@ -279,138 +290,138 @@ const pagamentoStyle = StyleSheet.create({
     fontSize: 10,
     padding: 5,
   },
-  subtotal:{
-    width: '100%',
+  subtotal: {
+    width: "100%",
     backgroundColor: cores.branco,
     paddingVertical: 10,
     paddingHorizontal: 10,
     borderRadius: 10,
     borderColor: cores.laranja,
     borderWidth: 2,
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    justifyContent: "space-between",
+    alignItems: "center",
     marginVertical: 5,
   },
-  topoSubtotal:{
-    width: '100%',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginVertical: 5
+  topoSubtotal: {
+    width: "100%",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginVertical: 5,
   },
-  imgSubtotal:{
+  imgSubtotal: {
     width: 30,
     height: 30,
   },
-  resumoPedido:{
-    justifyContent: 'flex-start',
-    width: '85%',
+  resumoPedido: {
+    justifyContent: "flex-start",
+    width: "85%",
   },
-  tituloSubtotal:{
+  tituloSubtotal: {
     fontFamily: fontes.negrito,
     color: cores.laranja,
     fontSize: 15,
     marginBottom: 5,
   },
-  resumo:{
-    justifyContent: 'space-between',
+  resumo: {
+    justifyContent: "space-between",
     gap: 10,
   },
-  itemResumo:{
-    width: '100%',
-    flexDirection: 'row',
+  itemResumo: {
+    width: "100%",
+    flexDirection: "row",
     gap: 10,
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    justifyContent: "space-between",
+    alignItems: "center",
   },
-  imgProduto:{
+  imgProduto: {
     width: 25,
     height: 15,
   },
-  nomeProduto:{
+  nomeProduto: {
     fontSize: 11,
     color: cores.preto,
     fontFamily: fontes.negrito,
   },
-  valorProduto:{
+  valorProduto: {
     fontSize: 12,
     color: cores.preto,
     fontFamily: fontes.negrito,
   },
-  areaSubtotal:{
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: '100%',
-    marginVertical: 5,   
+  areaSubtotal: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    width: "100%",
+    marginVertical: 5,
   },
-  txtSubtotal:{
+  txtSubtotal: {
     fontSize: 10,
     color: cores.preto,
   },
-  valorSubtotal:{
+  valorSubtotal: {
     fontSize: 11,
     color: cores.preto,
     fontFamily: fontes.negrito,
   },
-  areaValorEntrega:{
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: '100%',
-    marginBottom: 5,   
+  areaValorEntrega: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    width: "100%",
+    marginBottom: 5,
   },
-  txtValorEntrega:{
+  txtValorEntrega: {
     fontSize: 10,
     color: cores.preto,
   },
-  valorEntrega:{
+  valorEntrega: {
     fontSize: 11,
     color: cores.preto,
     fontFamily: fontes.negrito,
   },
-  areaDesconto:{
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: '100%',    
+  areaDesconto: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    width: "100%",
   },
-  txtDesconto:{
+  txtDesconto: {
     fontSize: 10,
     color: cores.verde,
   },
-  cupomDesconto:{
+  cupomDesconto: {
     fontSize: 10,
     color: cores.verde,
     fontFamily: fontes.negrito,
   },
-  valorDesconto:{
+  valorDesconto: {
     fontSize: 11,
     color: cores.verde,
     fontFamily: fontes.negrito,
   },
-  areaTotal:{
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: '100%',
+  areaTotal: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    width: "100%",
   },
-  txtTotal:{
+  txtTotal: {
     fontSize: 10,
     color: cores.preto,
     fontFamily: fontes.negrito,
   },
-  valorTotal:{
+  valorTotal: {
     fontSize: 11,
     color: cores.laranja,
     fontFamily: fontes.negrito,
   },
-  btnPedido:{
-    width: '100%',
+  btnPedido: {
+    width: "100%",
     height: 30,
     borderRadius: 10,
-    flexDirection: 'row',
+    flexDirection: "row",
     backgroundColor: cores.laranja,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     marginTop: 10,
   },
-  txtPedido:{
+  txtPedido: {
     fontFamily: fontes.negrito,
     fontSize: 15,
     color: cores.preto,

@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { router } from "expo-router";
+import { useState, useCallback } from "react";
+import { router, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
   View,
@@ -15,7 +15,76 @@ import sacolaStyle from "@/styles/sacolaStyle";
 import FooterScreen from "@/app/footer";
 import { cores } from "@/styles/variaveis";
 
+import { IMAGEM } from "@/config/api";
+import {
+  ItemSacola,
+  carregarSacola,
+  alterarQuantidadeSacola,
+  removerDaSacola,
+} from "@/config/sacola";
+
 export default function SacolaScreen() {
+  const [itens, setItens] = useState<ItemSacola[]>([]);
+  const [erro, setErro] = useState("");
+  const [processando, setProcessando] = useState(false);
+
+  const atualizarSacola = useCallback(async () => {
+    try {
+      setErro("");
+      setItens(await carregarSacola());
+    } catch (erro) {
+      setErro(
+        erro instanceof Error ? erro.message : "Erro ao carregar sacola.",
+      );
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      atualizarSacola();
+    }, [atualizarSacola]),
+  );
+
+  async function mudarQuantidade(idProduto: number, quantidade: number) {
+    if (processando || quantidade < 1 || quantidade > 99) return;
+    setProcessando(true);
+    try {
+      await alterarQuantidadeSacola(idProduto, quantidade);
+      await atualizarSacola();
+    } catch (erro) {
+      setErro(
+        erro instanceof Error ? erro.message : "Erro ao alterar quantidade.",
+      );
+    } finally {
+      setProcessando(false);
+    }
+  }
+
+  async function excluirItem(idProduto: number) {
+    if (processando) return;
+    setProcessando(true);
+    try {
+      await removerDaSacola(idProduto);
+      await atualizarSacola();
+    } catch (erro) {
+      setErro(
+        erro instanceof Error ? erro.message : "Erro ao remover produto.",
+      );
+    } finally {
+      setProcessando(false);
+    }
+  }
+
+  const subtotal = itens.reduce(
+    (total, item) => total + item.valor_produto * item.quantidade,
+    0,
+  );
+  const moeda = (valor: number) =>
+    valor.toLocaleString("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    });
+
   return (
     <View style={globalStyle.container}>
       <ImageBackground
@@ -49,127 +118,93 @@ export default function SacolaScreen() {
               </View>
 
               <View style={sacolaStyle.main}>
-
-                <View style={sacolaStyle.itemSacola}>
-                  <Image 
-                    style={sacolaStyle.imgItem} 
-                    source={require('@/assets/images/img/produtos/bolo01.png')}
-                    resizeMode="stretch"
-                  />
-                  <View style={sacolaStyle.centroItem}>
-                    <Text style={sacolaStyle.tituloItem}>Bolo de Banana Fit</Text>
-                    <Text style={sacolaStyle.descricaoItem}>Banana Prata com canela e gergilim</Text>
-                    <View style={sacolaStyle.valoresItem}>
-                      <Text style={sacolaStyle.valorUnitItem}>R$ 18,80</Text>
-                      <Text style={sacolaStyle.valorTotalItem}>R$ 37,60</Text>
-                    </View>
-                  </View>
-                  <View style={sacolaStyle.direitaItem}>
-                    <Pressable style={sacolaStyle.btnExcluir}>
+                {erro ? <Text style={{ color: "#B00020" }}>{erro}</Text> : null}
+                {itens.length === 0 ? (
+                  <Text>Sua sacola está vazia.</Text>
+                ) : (
+                  itens.map((item) => (
+                    <View style={sacolaStyle.itemSacola} key={item.id_produto}>
                       <Image
-                         style={sacolaStyle.imgExcluir}
-                         source={require('@/assets/images/img/icones/lixeira.png')}
+                        style={sacolaStyle.imgItem}
+                        source={{
+                          uri: item.foto_produto
+                            ? `${IMAGEM}/${item.foto_produto}`
+                            : `${IMAGEM}/produto/sem-imagem.png`,
+                        }}
+                        resizeMode="stretch"
                       />
-                    </Pressable>
-                    <View style={sacolaStyle.caixaQtde}>
-                      <Pressable style={sacolaStyle.btnQtde}>
-                        <Image
-                          style={sacolaStyle.imgQtde}
-                          source={require("@/assets/images/img/icones/retirar.png")}
-                        />
-                      </Pressable>
-                      <Text style={sacolaStyle.quantidade}>2</Text>
-                      <Pressable style={sacolaStyle.btnQtde}>
-                        <Image
-                          style={sacolaStyle.imgQtde}
-                          source={require("@/assets/images/img/icones/adicionar.png")}
-                        />
-                      </Pressable>
+                      <View style={sacolaStyle.centroItem}>
+                        <Text style={sacolaStyle.tituloItem}>
+                          {item.nome_produto}
+                        </Text>
+                        <Text style={sacolaStyle.descricaoItem}>
+                          {item.descricao_produto}
+                        </Text>
+                        <View style={sacolaStyle.valoresItem}>
+                          <Text style={sacolaStyle.valorUnitItem}>
+                            {moeda(item.valor_produto)}
+                          </Text>
+                          <Text style={sacolaStyle.valorTotalItem}>
+                            {moeda(item.valor_produto * item.quantidade)}
+                          </Text>
+                        </View>
+                      </View>
+                      <View style={sacolaStyle.direitaItem}>
+                        <Pressable
+                          style={sacolaStyle.btnExcluir}
+                          disabled={processando}
+                          onPress={() => excluirItem(item.id_produto)}
+                        >
+                          <Image
+                            style={sacolaStyle.imgExcluir}
+                            source={require("@/assets/images/img/icones/lixeira.png")}
+                          />
+                        </Pressable>
+                        <View style={sacolaStyle.caixaQtde}>
+                          <Pressable
+                            style={sacolaStyle.btnQtde}
+                            disabled={processando || item.quantidade <= 1}
+                            onPress={() =>
+                              mudarQuantidade(
+                                item.id_produto,
+                                item.quantidade - 1,
+                              )
+                            }
+                          >
+                            <Image
+                              style={sacolaStyle.imgQtde}
+                              source={require("@/assets/images/img/icones/retirar.png")}
+                            />
+                          </Pressable>
+                          <Text style={sacolaStyle.quantidade}>
+                            {item.quantidade}
+                          </Text>
+                          <Pressable
+                            style={sacolaStyle.btnQtde}
+                            disabled={processando || item.quantidade >= 99}
+                            onPress={() =>
+                              mudarQuantidade(
+                                item.id_produto,
+                                item.quantidade + 1,
+                              )
+                            }
+                          >
+                            <Image
+                              style={sacolaStyle.imgQtde}
+                              source={require("@/assets/images/img/icones/adicionar.png")}
+                            />
+                          </Pressable>
+                        </View>
+                      </View>
                     </View>
-                  </View>
-                </View>
-
-                <View style={sacolaStyle.itemSacola}>
-                  <Image 
-                    style={sacolaStyle.imgItem} 
-                    source={require('@/assets/images/img/produtos/bolo01.png')}
-                    resizeMode="stretch"
-                  />
-                  <View style={sacolaStyle.centroItem}>
-                    <Text style={sacolaStyle.tituloItem}>Bolo de Banana Fit</Text>
-                    <Text style={sacolaStyle.descricaoItem}>Banana Prata com canela e gergilim</Text>
-                    <View style={sacolaStyle.valoresItem}>
-                      <Text style={sacolaStyle.valorUnitItem}>R$ 18,80</Text>
-                      <Text style={sacolaStyle.valorTotalItem}>R$ 37,60</Text>
-                    </View>
-                  </View>
-                  <View style={sacolaStyle.direitaItem}>
-                    <Pressable style={sacolaStyle.btnExcluir}>
-                      <Image
-                         style={sacolaStyle.imgExcluir}
-                         source={require('@/assets/images/img/icones/lixeira.png')}
-                      />
-                    </Pressable>
-                    <View style={sacolaStyle.caixaQtde}>
-                      <Pressable style={sacolaStyle.btnQtde}>
-                        <Image
-                          style={sacolaStyle.imgQtde}
-                          source={require("@/assets/images/img/icones/retirar.png")}
-                        />
-                      </Pressable>
-                      <Text style={sacolaStyle.quantidade}>2</Text>
-                      <Pressable style={sacolaStyle.btnQtde}>
-                        <Image
-                          style={sacolaStyle.imgQtde}
-                          source={require("@/assets/images/img/icones/adicionar.png")}
-                        />
-                      </Pressable>
-                    </View>
-                  </View>
-                </View>
-
-                <View style={sacolaStyle.itemSacola}>
-                  <Image 
-                    style={sacolaStyle.imgItem} 
-                    source={require('@/assets/images/img/produtos/bolo01.png')}
-                    resizeMode="stretch"
-                  />
-                  <View style={sacolaStyle.centroItem}>
-                    <Text style={sacolaStyle.tituloItem}>Bolo de Banana Fit</Text>
-                    <Text style={sacolaStyle.descricaoItem}>Banana Prata com canela e gergilim</Text>
-                    <View style={sacolaStyle.valoresItem}>
-                      <Text style={sacolaStyle.valorUnitItem}>R$ 18,80</Text>
-                      <Text style={sacolaStyle.valorTotalItem}>R$ 37,60</Text>
-                    </View>
-                  </View>
-                  <View style={sacolaStyle.direitaItem}>
-                    <Pressable style={sacolaStyle.btnExcluir}>
-                      <Image
-                         style={sacolaStyle.imgExcluir}
-                         source={require('@/assets/images/img/icones/lixeira.png')}
-                      />
-                    </Pressable>
-                    <View style={sacolaStyle.caixaQtde}>
-                      <Pressable style={sacolaStyle.btnQtde}>
-                        <Image
-                          style={sacolaStyle.imgQtde}
-                          source={require("@/assets/images/img/icones/retirar.png")}
-                        />
-                      </Pressable>
-                      <Text style={sacolaStyle.quantidade}>2</Text>
-                      <Pressable style={sacolaStyle.btnQtde}>
-                        <Image
-                          style={sacolaStyle.imgQtde}
-                          source={require("@/assets/images/img/icones/adicionar.png")}
-                        />
-                      </Pressable>
-                    </View>
-                  </View>
-                </View>
+                  ))
+                )}
 
                 <View style={sacolaStyle.cupom}>
                   <View style={sacolaStyle.cupomEsquerdo}>
-                    <Text style={sacolaStyle.tituloCupom}>Cupom de Desconto</Text>
+                    <Text style={sacolaStyle.tituloCupom}>
+                      Cupom de Desconto
+                    </Text>
                     <TextInput
                       style={sacolaStyle.txtCupom}
                       placeholder="Digite seu cupom"
@@ -177,58 +212,41 @@ export default function SacolaScreen() {
                     />
                   </View>
                   <Pressable>
-                    <Text style={sacolaStyle.txtAplicar}>Aplicar {'>'} </Text>
+                    <Text style={sacolaStyle.txtAplicar}>Aplicar {">"} </Text>
                   </Pressable>
                 </View>
-
-                <View style={sacolaStyle.endereco}>
-                  <Image 
-                    style={sacolaStyle.imgEndereco}
-                    source={require('@/assets/images/img/icones/delivery-laranja.png')}
-                    resizeMode="stretch"
-                  />
-                  <View style={sacolaStyle.infoEndereco}>
-                    <Text style={sacolaStyle.tituloEndereco}>Entrega em:</Text>
-                    <Text style={sacolaStyle.enderecoCompleto}>
-                      Avenida Marechal Tito, 1500 - São Miguel Paulista - São Paulo - SP
-                    </Text>
-                    <Text style={sacolaStyle.telefone}>{'('}11{')'} 99999-9999</Text>
-                    <View style={sacolaStyle.entrega}>
-                      <Text style={sacolaStyle.tituloEntrega}>Entrega estimada em:</Text>
-                      <Text style={sacolaStyle.tempoEntrega}>40 - 60 min</Text>
-                      <Pressable>
-                        <Text style={sacolaStyle.txtEndereco}>Trocar endereço</Text>
-                      </Pressable>
+                {itens.length > 0 ? (
+                  <>
+                    <View style={sacolaStyle.subtotal}>                  
+                      <View style={sacolaStyle.areaSubtotal}>
+                        <Text style={sacolaStyle.txtSubtotal}>Subtotal</Text>
+                        <Text style={sacolaStyle.valorSubtotal}>
+                          {moeda(subtotal)}
+                        </Text>
+                      </View>  
+                      <View style={sacolaStyle.areaDesconto}>
+                        <Text style={sacolaStyle.txtDesconto}>Desconto</Text>
+                        <Text style={sacolaStyle.cupomDesconto}>
+                          
+                        </Text>
+                        <Text style={sacolaStyle.valorDesconto}>R$ 0,00</Text>
+                      </View>
+                      <View style={globalStyle.separador}></View>
+                      <View style={sacolaStyle.areaTotal}>
+                        <Text style={sacolaStyle.txtTotal}>Total</Text>
+                        <Text style={sacolaStyle.valorTotal}>{moeda(subtotal)}</Text>
+                      </View>
                     </View>
-                  </View>
-                </View>
-
-                <View style={sacolaStyle.subtotal}>
-                  <View style={sacolaStyle.areaSubtotal}>
-                    <Text style={sacolaStyle.txtSubtotal}>Subtotal</Text>
-                    <Text style={sacolaStyle.valorSubtotal}>R$ 150,40</Text>
-                  </View>
-                  <View style={sacolaStyle.areaEntrega}>
-                    <Text style={sacolaStyle.txtEntrega}>Entrega</Text>
-                    <Text style={sacolaStyle.valorEntrega}>R$   8,00</Text>
-                  </View>
-                  <View style={sacolaStyle.areaDesconto}>
-                    <Text style={sacolaStyle.txtDesconto}>Desconto</Text>
-                    <Text style={sacolaStyle.cupomDesconto}>THEGUSTA40</Text>
-                    <Text style={sacolaStyle.valorDesconto}>R$ -15,84</Text>
-                  </View>
-                  <View style={globalStyle.separador}></View>
-                  <View style={sacolaStyle.areaTotal}>
-                    <Text style={sacolaStyle.txtTotal}>Total</Text>
-                    <Text style={sacolaStyle.valorTotal}>R$ 142,56</Text>
-                  </View>
-                </View>
-                <Pressable 
-                  style={sacolaStyle.btnPagamento}
-                  onPress={() => router.navigate('/pagamento')}
-                >
-                  <Text style={sacolaStyle.txtPagamento}>Continuar para pagamento</Text>
-                </Pressable>
+                    <Pressable
+                      style={sacolaStyle.btnPagamento}
+                      onPress={() => router.navigate("/pagamento")}
+                    >
+                      <Text style={sacolaStyle.txtPagamento}>
+                        Continuar para pagamento
+                      </Text>
+                    </Pressable>
+                  </>
+                ) : null}
               </View>
             </View>
           </ScrollView>

@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { router } from "expo-router";
+import { useState, useCallback } from "react";
+import { router, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
   View,
@@ -9,74 +9,240 @@ import {
   TextInput,
   Pressable,
   ScrollView,
-  Linking
+  Alert,
+  Linking,
 } from "react-native";
+
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { API, IMAGEM } from "@/config/api";
+import { ItemSacola, carregarSacola, limparSacola } from "@/config/sacola";
+
 import globalStyle from "@/styles/globalStyle";
 import pagamentoStyle from "@/styles/pagamentoStyle";
 import FooterScreen from "@/app/footer";
 import { cores } from "@/styles/variaveis";
 
+type Endereco = {
+  id_endereco: number;
+  nome_endereco: string;
+  endereco: string;
+  numero: string;
+  complemento: string | null;
+  bairro: string;
+  cidade: string;
+  uf: string;
+  cep: string;
+  principal_endereco: "SIM" | "NAO";
+};
+
 export default function PagamentoScreen() {
+  const [itensResumo, setItensResumo] = useState<ItemSacola[]>([]);
+  const [enderecos, setEnderecos] = useState<Endereco[]>([]);
+  const [idEndereco, setIdEndereco] = useState<number | null>(null);
+  const [entrega, setEntrega] = useState<"SIM" | "NAO">("SIM");
+  const [formaPagamento, setFormaPagamento] = useState<
+    "PIX" | "CARTAO" | "DINHEIRO"
+  >("PIX");
+  const [dataEntrega, setDataEntrega] = useState("");
+  const [horaEntrega, setHoraEntrega] = useState("");
+  const [observacao, setObservacao] = useState("");
+  const [erro, setErro] = useState("");
+  const [carregando, setCarregando] = useState(false);
+  const [enviando, setEnviando] = useState(false);
+  const enderecoSelecionado = enderecos.find(
+    (e) => e.id_endereco === idEndereco,
+  );
+  const subtotal = itensResumo.reduce(
+    (total, item) => total + item.valor_produto * item.quantidade,
+    0,
+  );
+  const moeda = (valor: number) =>
+    valor.toLocaleString("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    });
 
-  const itensResumo = [
-    {
-      id: 1,
-      quantidade: 2,
-      nome: "Bolo de Banana Fit",
-      valor: "R$ 37,60",
-      imagem: require("@/assets/images/img/produtos/bolo01.png"),
-    },
-    {
-      id: 2,
-      quantidade: 3,
-      nome: "Bolo de Banana Fit",
-      valor: "R$ 56,40",
-      imagem: require("@/assets/images/img/produtos/bolo01.png"),
-    },
-    {
-      id: 3,
-      quantidade: 2,
-      nome: "Bolo de Banana Fit",
-      valor: "R$ 37,60",
-      imagem: require("@/assets/images/img/produtos/bolo01.png"),
-    },
-  ];
+  const mascaraData = (valor: string) => {
+    const numeros = valor.replace(/\D/g, "").slice(0, 8);
 
-  const confirmarPedido = () => {
-    const telefone = "5511964440092";
-
-    const listaProdutos = itensResumo
-      .map(
-        (item) =>
-          `${item.quantidade}x ${item.nome} - ${item.valor}`
-      )
-      .join("\n");
-
-    const mensagem = `
-    🍰 *NOVO PEDIDO - THE GUSTA*
-
-    📋 *Itens do pedido:*
-
-    ${listaProdutos}
-
-    -------------------------
-    Subtotal: R$ 150,40
-    Entrega: R$ 8,00
-    Desconto: R$ -15,84
-
-    💰 *Total: R$ 142,56*
-
-    📍 *Entrega*
-    Avenida Marechal Tito, 1500
-    São Miguel Paulista - São Paulo - SP
-
-    💳 *Forma de pagamento:* Pix
-    `;
-
-    const url = `https://wa.me/${telefone}?text=${encodeURIComponent(mensagem)}`;
-
-    Linking.openURL(url);
+    return numeros
+      .replace(/^(\d{2})(\d)/, "$1/$2")
+      .replace(/^(\d{2})\/(\d{2})(\d)/, "$1/$2/$3");
   };
+
+  const mascaraHora = (valor: string) => {
+    const numeros = valor.replace(/\D/g, "").slice(0, 4);
+
+    return numeros.replace(/^(\d{2})(\d)/, "$1:$2");
+  };
+
+  const converterDataHora = () => {
+    const [dia, mes, ano] = dataEntrega.split("/");
+
+    return `${ano}-${mes}-${dia} ${horaEntrega}`;
+  };
+
+  const carregarPagamento = useCallback(async () => {
+    setCarregando(true);
+    setErro("");
+    try {
+      const produtos = await carregarSacola();
+      setItensResumo(produtos);
+      const token = await AsyncStorage.getItem("token");
+      if (!token) throw new Error("Sessão expirada. Faça login novamente.");
+      const resposta = await fetch(`${API}/enderecos`, {
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const json = await resposta.json();
+      if (!resposta.ok || !json.success) {
+        throw new Error(json.message || "Não foi possível carregar endereços.");
+      }
+      const lista: Endereco[] = Array.isArray(json.data) ? json.data : [];
+      setEnderecos(lista);
+      setIdEndereco((atual) =>
+        lista.some((e) => e.id_endereco === atual)
+          ? atual
+          : (lista.find((e) => e.principal_endereco === "SIM")?.id_endereco ??
+            lista[0]?.id_endereco ??
+            null),
+      );
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : "Erro ao carregar pagamento.");
+    } finally {
+      setCarregando(false);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      carregarPagamento();
+    }, [carregarPagamento]),
+  );
+
+  function dataValidaFutura(texto: string): boolean {
+    const m = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})$/.exec(texto);
+    if (!m) return false;
+    const [ano, mes, dia, hora, minuto] = m.slice(1).map(Number);
+    const data = new Date(ano, mes - 1, dia, hora, minuto);
+    return (
+      data.getFullYear() === ano &&
+      data.getMonth() === mes - 1 &&
+      data.getDate() === dia &&
+      data.getHours() === hora &&
+      data.getMinutes() === minuto &&
+      data.getTime() > Date.now()
+    );
+  }
+
+  async function confirmarPedido() {
+    if (enviando) return;
+    if (itensResumo.length === 0) {
+      setErro("A sacola está vazia.");
+      return;
+    }
+    if (entrega === "SIM" && !idEndereco) {
+      setErro("Selecione um endereço de entrega.");
+      return;
+    }
+    const dataHoraPedido = converterDataHora();
+
+    if (!dataValidaFutura(dataHoraPedido)) {
+      setErro("Informe uma data e horário futuros válidos.");
+      return;
+    }
+    setEnviando(true);
+    setErro("");
+    try {
+      const token = await AsyncStorage.getItem("token");
+      if (!token) throw new Error("Sessão expirada. Faça login novamente.");
+      const corpo = {
+        itens: itensResumo.map((item) => ({
+          id_produto: item.id_produto,
+          quantidade: item.quantidade,
+        })),
+        entrega,
+        ...(entrega === "SIM" ? { id_endereco: idEndereco } : {}),
+        forma_pagamento: formaPagamento,
+        data_entrega: dataHoraPedido,
+        ...(observacao.trim() ? { observacao: observacao.trim() } : {}),
+      };
+      const resposta = await fetch(`${API}/pedidos`, {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(corpo),
+      });
+      const json = await resposta.json();
+      if (!resposta.ok || !json.success) {
+        throw new Error(json.message || "Não foi possível criar o pedido.");
+      }
+
+      // A partir daqui o pedido JÁ EXISTE na API.
+      const pedido = json.data;
+      const numeroPedido = pedido.id_venda;
+      const listaProdutos = itensResumo
+        .map(
+          (item) =>
+            `${item.quantidade}x ${item.nome_produto} - ` +
+            moeda(item.valor_produto * item.quantidade),
+        )
+        .join("\n");
+      const local =
+        entrega === "SIM" && enderecoSelecionado
+          ? `Entrega: ${enderecoSelecionado.nome_endereco} - ` +
+            `${enderecoSelecionado.endereco}, ${enderecoSelecionado.numero}`
+          : "Retirada no estabelecimento";
+      const valorFinal = Number(pedido.valor_venda);
+      const valorConfirmado = Number.isFinite(valorFinal)
+        ? moeda(valorFinal)
+        : "Consulte o valor no pedido registrado";
+      const mensagem = [
+        "🍰 *NOVO PEDIDO - THE GUSTA*",
+        `*Pedido nº ${numeroPedido}*`,
+        "",
+        "📋 *Itens do pedido:*",
+        listaProdutos,
+        "",
+        `Subtotal (prévia): ${moeda(subtotal)}`,
+        `💰 *Total confirmado pela API:* ${valorConfirmado}`,
+        "",
+        `📍 ${local}`,
+        `📅 Data desejada: ${dataEntrega} às ${horaEntrega}`,
+        `💳 Forma de pagamento: ${formaPagamento}`,
+        ...(observacao.trim() ? [`📝 ${observacao.trim()}`] : []),
+      ].join("\n");
+
+      try {
+        await limparSacola();
+      } catch (erroLimpeza) {
+        console.warn("Pedido criado; falha ao limpar sacola:", erroLimpeza);
+      }
+      // Mantenha o telefone usado na sua função original.
+      const telefone = "5511964440092";
+      const url = `https://wa.me/${telefone}?text=${encodeURIComponent(mensagem)}`;
+      try {
+        await Linking.openURL(url);
+      } catch (erroWhatsApp) {
+        console.warn("WhatsApp não abriu:", erroWhatsApp);
+        setErro(
+          `Pedido nº ${numeroPedido} registrado! ` +
+            "Não foi possível abrir o WhatsApp. Consulte Meus Pedidos.",
+        );
+      }
+      // Não criar outro pedido se o WhatsApp falhar.
+      // Não navegar imediatamente: isso pode interromper o WhatsApp.
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : "Erro ao confirmar pedido.");
+    } finally {
+      setEnviando(false);
+    }
+  }
 
   return (
     <View style={globalStyle.container}>
@@ -121,18 +287,43 @@ export default function PagamentoScreen() {
                     <Text style={pagamentoStyle.tituloEndereco}>
                       Endereço de entrega:
                     </Text>
-                    <Text style={pagamentoStyle.nomeEndereco}>Casa</Text>
+                    <Text style={pagamentoStyle.nomeEndereco}>
+                      {enderecoSelecionado?.nome_endereco ??
+                        "Nenhum endereço cadastrado"}
+                    </Text>
                     <Text style={pagamentoStyle.enderecoCompleto}>
-                      Avenida Marechal Tito, 1500
+                      {enderecoSelecionado
+                        ? `${enderecoSelecionado.endereco}, ${enderecoSelecionado.numero}${enderecoSelecionado.complemento ? ` - ${enderecoSelecionado.complemento}` : ""}`
+                        : "Cadastre um endereço para receber o pedido."}
                     </Text>
                     <Text style={pagamentoStyle.localCompleto}>
-                      São Miguel Paulista - São Paulo - SP
+                      {enderecoSelecionado
+                        ? `${enderecoSelecionado.bairro} - ${enderecoSelecionado.cidade} - ${enderecoSelecionado.uf}`
+                        : ""}
                     </Text>
-                    <Text style={pagamentoStyle.telefone}>
+                    {/* <Text style={pagamentoStyle.telefone}>
                       {"("}11{")"} 99999-9999
-                    </Text>
+                    </Text> */}
                   </View>
-                  <Pressable>
+                  <Pressable
+                    onPress={() => {
+                      if (enderecos.length === 0) {
+                        Alert.alert("Endereço", "Nenhum endereço cadastrado.");
+                        return;
+                      }
+                      Alert.alert(
+                        "Selecionar endereço",
+                        "Escolha um endereço:",
+                        [
+                          ...enderecos.map((e) => ({
+                            text: `${e.nome_endereco} - ${e.endereco}, ${e.numero}`,
+                            onPress: () => setIdEndereco(e.id_endereco),
+                          })),
+                          { text: "Cancelar", style: "cancel" },
+                        ],
+                      );
+                    }}
+                  >
                     <Text style={pagamentoStyle.txtAlterar}>Alterar {">"}</Text>
                   </Pressable>
                 </View>
@@ -145,20 +336,64 @@ export default function PagamentoScreen() {
                   />
                   <View style={pagamentoStyle.infoEntrega}>
                     <Text style={pagamentoStyle.tituloEntrega}>
-                      Endereço de entrega:
+                      Modalidade do pedido:
                     </Text>
                     <View style={pagamentoStyle.btnEntregaRetira}>
-                      <Pressable style={pagamentoStyle.btnEntrega}>
-                        <Text style={pagamentoStyle.txtEntrega}>Entrega</Text>
+                      <Pressable
+                        style={pagamentoStyle.btnEntrega}
+                        onPress={() => setEntrega("SIM")}
+                      >
+                        <Text style={pagamentoStyle.txtEntrega}>
+                          {entrega === "SIM" ? "✓ Entrega" : "Entrega"}
+                        </Text>
                       </Pressable>
-                      <Pressable style={pagamentoStyle.btnRetira}>
-                        <Text style={pagamentoStyle.txtRetira}>Retirada</Text>
+                      <Pressable
+                        style={pagamentoStyle.btnRetira}
+                        onPress={() => setEntrega("NAO")}
+                      >
+                        <Text style={pagamentoStyle.txtRetira}>
+                          {entrega === "NAO" ? "✓ Retirada" : "Retirada"}
+                        </Text>
                       </Pressable>
                     </View>
                   </View>
                   <View style={pagamentoStyle.previsao}>
                     <Text style={pagamentoStyle.tempoEntrega}>40 - 60 min</Text>
                     <Text style={pagamentoStyle.txtPrevisao}>Previsão</Text>
+                  </View>
+                </View>
+                <View style={pagamentoStyle.areaObservacao}>
+                  <View style={pagamentoStyle.camposDataHora}>
+                    <Text style={pagamentoStyle.tituloObservacao}>
+                      Data da {entrega === "SIM" ? "entrega" : "retirada"}
+                    </Text>
+                    <TextInput
+                      style={pagamentoStyle.txtDataHora}
+                      placeholder="DD/MM/AAAA"
+                      keyboardType="numeric"
+                      placeholderTextColor={cores.cinza}
+                      value={dataEntrega}
+                      onChangeText={(texto) =>
+                        setDataEntrega(mascaraData(texto))
+                      }
+                      maxLength={10}
+                    />
+                  </View>
+                  <View style={pagamentoStyle.camposDataHora}>
+                    <Text style={pagamentoStyle.tituloObservacao}>
+                      Horário da {entrega === "SIM" ? "entrega" : "retirada"}
+                    </Text>
+                    <TextInput
+                      style={pagamentoStyle.txtDataHora}
+                      placeholder="HH:MM"
+                      keyboardType="numeric"
+                      placeholderTextColor={cores.cinza}
+                      value={horaEntrega}
+                      onChangeText={(texto) =>
+                        setHoraEntrega(mascaraHora(texto))
+                      }
+                      maxLength={5}
+                    />
                   </View>
                 </View>
 
@@ -173,14 +408,31 @@ export default function PagamentoScreen() {
                       Forma de Pagamento
                     </Text>
                     <View style={pagamentoStyle.btnPagamento}>
-                      <Pressable style={pagamentoStyle.btnPix}>
-                        <Text style={pagamentoStyle.txtPix}>Pix</Text>
+                      <Pressable
+                        style={pagamentoStyle.btnPix}
+                        onPress={() => setFormaPagamento("PIX")}
+                      >
+                        <Text style={pagamentoStyle.txtPix}>
+                          {formaPagamento === "PIX" ? "✓ Pix" : "Pix"}
+                        </Text>
                       </Pressable>
-                      <Pressable style={pagamentoStyle.btnCartao}>
-                        <Text style={pagamentoStyle.txtCartao}>Cartão</Text>
+                      <Pressable
+                        style={pagamentoStyle.btnCartao}
+                        onPress={() => setFormaPagamento("CARTAO")}
+                      >
+                        <Text style={pagamentoStyle.txtCartao}>
+                          {formaPagamento === "CARTAO" ? "✓ Cartão" : "Cartão"}
+                        </Text>
                       </Pressable>
-                      <Pressable style={pagamentoStyle.btnDinheiro}>
-                        <Text style={pagamentoStyle.txtDinheiro}>Dinheiro</Text>
+                      <Pressable
+                        style={pagamentoStyle.btnDinheiro}
+                        onPress={() => setFormaPagamento("DINHEIRO")}
+                      >
+                        <Text style={pagamentoStyle.txtDinheiro}>
+                          {formaPagamento === "DINHEIRO"
+                            ? "✓ Dinheiro"
+                            : "Dinheiro"}
+                        </Text>
                       </Pressable>
                     </View>
                   </View>
@@ -194,12 +446,14 @@ export default function PagamentoScreen() {
                   />
                   <View style={pagamentoStyle.observacao}>
                     <Text style={pagamentoStyle.tituloObservacao}>
-                      Observação
+                      Observações:
                     </Text>
                     <TextInput
                       style={pagamentoStyle.txtObservacao}
-                      placeholder="Alguma observação para seu pedido?"
-                      placeholderTextColor={cores.cinza}
+                      value={observacao}
+                      onChangeText={setObservacao}
+                      maxLength={500}
+                      multiline
                     />
                   </View>
                 </View>
@@ -217,15 +471,26 @@ export default function PagamentoScreen() {
                       </Text>
                       <View style={pagamentoStyle.resumo}>
                         {itensResumo.map((item) => (
-                          <View style={pagamentoStyle.itemResumo} key={item.id}>
-                            <Image 
+                          <View
+                            style={pagamentoStyle.itemResumo}
+                            key={item.id_produto}
+                          >
+                            <Image
                               style={pagamentoStyle.imgProduto}
-                              source={item.imagem}
+                              source={{
+                                uri: item.foto_produto
+                                  ? `${IMAGEM}/${item.foto_produto}`
+                                  : `${IMAGEM}/produto/sem-imagem.png`,
+                              }}
                               resizeMode="stretch"
                             />
-                            <Text style={pagamentoStyle.nomeProduto}>{item.quantidade}x {item.nome}</Text>
-                            <Text style={pagamentoStyle.valorProduto}>{item.valor}</Text>
-                          </View>                          
+                            <Text style={pagamentoStyle.nomeProduto}>
+                              {item.quantidade}x {item.nome_produto}
+                            </Text>
+                            <Text style={pagamentoStyle.valorProduto}>
+                              {moeda(item.valor_produto * item.quantidade)}
+                            </Text>
+                          </View>
                         ))}
                       </View>
                     </View>
@@ -234,25 +499,35 @@ export default function PagamentoScreen() {
                   <View style={globalStyle.separador}></View>
                   <View style={pagamentoStyle.areaSubtotal}>
                     <Text style={pagamentoStyle.txtSubtotal}>Subtotal</Text>
-                    <Text style={pagamentoStyle.valorSubtotal}>R$ 150,40</Text>
+                    <Text style={pagamentoStyle.valorSubtotal}>
+                      {moeda(subtotal)}
+                    </Text>
                   </View>
-                  <View style={pagamentoStyle.areaValorEntrega}>
+                  {/* <View style={pagamentoStyle.areaValorEntrega}>
                     <Text style={pagamentoStyle.txtValorEntrega}>Entrega</Text>
                     <Text style={pagamentoStyle.valorEntrega}>R$ 8,00</Text>
-                  </View>
+                  </View> */}
                   <View style={pagamentoStyle.areaDesconto}>
                     <Text style={pagamentoStyle.txtDesconto}>Desconto</Text>
-                    <Text style={pagamentoStyle.cupomDesconto}>THEGUSTA40</Text>
-                    <Text style={pagamentoStyle.valorDesconto}>R$ -15,84</Text>
+                    <Text style={pagamentoStyle.cupomDesconto}></Text>
+                    <Text style={pagamentoStyle.valorDesconto}>R$ 0,00</Text>
                   </View>
                   <View style={globalStyle.separador}></View>
                   <View style={pagamentoStyle.areaTotal}>
                     <Text style={pagamentoStyle.txtTotal}>Total</Text>
-                    <Text style={pagamentoStyle.valorTotal}>R$ 142,56</Text>
+                    <Text style={pagamentoStyle.valorTotal}>
+                      {moeda(subtotal)}
+                    </Text>
                   </View>
                 </View>
-                <Pressable style={pagamentoStyle.btnPedido} onPress={confirmarPedido}>
-                  <Text style={pagamentoStyle.txtPedido}>Confirmar pedido</Text>
+                <Pressable
+                  style={pagamentoStyle.btnPedido}
+                  disabled={enviando || carregando || itensResumo.length === 0}
+                  onPress={confirmarPedido}
+                >
+                  <Text style={pagamentoStyle.txtPedido}>
+                    {enviando ? "Enviando pedido..." : "Confirmar pedido"}
+                  </Text>
                 </Pressable>
               </View>
             </View>

@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { router } from "expo-router";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { router, useFocusEffect } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
@@ -28,14 +28,20 @@ export default function HomeScreen() {
   const [categorias, setCategorias] = useState<any[]>([]);
   const [banner, setBanner] = useState<any>(null);
 
+  const [mensagemFavorito, setMensagemFavorito] = useState("");
+  const [processandoFavoritos, setProcessandoFavoritos] = useState<number[]>(
+    [],
+  );
+  const bloqueiosFavoritos = useRef<Set<number>>(new Set());
+
   const [produtosEmDestaque, setProdutosEmDestaque] = useState<any[]>([]);
   //Carregar as informações da API
   useEffect(() => {
-    async function carregarCliente() {      
+    async function carregarCliente() {
       try {
         const token = await AsyncStorage.getItem("token");
 
-        if (!token){
+        if (!token) {
           router.replace("/");
           return;
         }
@@ -62,29 +68,6 @@ export default function HomeScreen() {
       }
     }
     carregarCliente();
-
-    async function carregarProdutos() {
-      try {
-        const resposta = await fetch(`${API}/produtos`);
-        const json = await resposta.json();
-
-        const produtos = json.data
-          .filter((produto: any) => produto.status_produto === "ATIVO")
-          .map((produto: any) => ({
-            ...produto,
-            favorito: false,
-          }));
-        setProdutos(produtos);
-
-        const destaques = produtos.filter(
-          (produto: any) => produto.destaque_produto === "SIM",
-        );
-        setProdutosEmDestaque(destaques);
-      } catch (erro) {
-        console.log("Erro ao carregar os produtos em destaque", erro);
-      }
-    }
-    carregarProdutos();
 
     async function carregarCategorias() {
       try {
@@ -134,6 +117,74 @@ export default function HomeScreen() {
     }
     carregarBanner();
   }, []);
+
+  const carregarProdutosEFavoritos = useCallback(async () => {
+    try {
+      const token = await AsyncStorage.getItem("token");
+      if (!token) {
+        router.replace("/");
+        return;
+      }
+
+      const respostaProdutos = await fetch(`${API}/produtos`);
+      const jsonProdutos = await respostaProdutos.json();
+      if (
+        !respostaProdutos.ok ||
+        !jsonProdutos.success ||
+        !Array.isArray(jsonProdutos.data)
+      ) {
+        setMensagemFavorito("Não foi possível carregar os produtos.");
+        return;
+      }
+
+      const respostaFavoritos = await fetch(`${API}/favoritos`, {
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const jsonFavoritos = await respostaFavoritos.json();
+      if (
+        !respostaFavoritos.ok ||
+        !jsonFavoritos.success ||
+        !Array.isArray(jsonFavoritos.data)
+      ) {
+        setMensagemFavorito("Não foi possível carregar seus favoritos.");
+        return;
+      }
+
+      const idsFavoritos = new Set<number>(
+        jsonFavoritos.data.map((item: any) => Number(item.id_produto)),
+      );
+
+      const produtosAtivos = jsonProdutos.data
+        .filter((produto: any) => produto.status_produto === "ATIVO")
+        .map((produto: any) => ({
+          ...produto,
+          favorito: idsFavoritos.has(Number(produto.id_produto)),
+        }))
+        .sort((a: any, b: any) =>
+          a.nome_produto.localeCompare(b.nome_produto, "pt-BR"),
+        );
+
+      setProdutos(produtosAtivos);
+      setProdutosEmDestaque(
+        produtosAtivos.filter(
+          (produto: any) => produto.destaque_produto === "SIM",
+        ),
+      );
+      setMensagemFavorito("");
+    } catch (erro) {
+      console.log("Erro ao carregar produtos/favoritos:", erro);
+      setMensagemFavorito("Não foi possível conectar ao servidor.");
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      carregarProdutosEFavoritos();
+    }, [carregarProdutosEFavoritos]),
+  );
 
   const [textoBusca, setTextoBusca] = useState("");
 
@@ -189,14 +240,63 @@ export default function HomeScreen() {
   //   },
   // ]);
 
-  function alterarFavorito(id: number) {
-    setProdutosEmDestaque((produtoFavorito) =>
-      produtoFavorito.map((produto) =>
-        produto.id_produto === id
-          ? { ...produto, favorito: !produto.favorito }
-          : produto,
-      ),
+  async function alterarFavorito(id: number) {
+    if (bloqueiosFavoritos.current.has(id)) return;
+
+    const produto = produtosEmDestaque.find(
+      (item) => Number(item.id_produto) === Number(id),
     );
+    if (!produto) return;
+
+    const token = await AsyncStorage.getItem("token");
+    if (!token) {
+      setMensagemFavorito("Faça login para salvar seus favoritos.");
+      return;
+    }
+
+    bloqueiosFavoritos.current.add(id);
+    setProcessandoFavoritos((atual) => [...atual, id]);
+    setMensagemFavorito("");
+
+    try {
+      const estavaFavorito = Boolean(produto.favorito);
+      const resposta = await fetch(
+        estavaFavorito ? `${API}/favoritos/${id}` : `${API}/favoritos`,
+        {
+          method: estavaFavorito ? "DELETE" : "POST",
+          headers: {
+            Accept: "application/json",
+            Authorization: `Bearer ${token}`,
+            ...(!estavaFavorito ? { "Content-Type": "application/json" } : {}),
+          },
+          ...(!estavaFavorito
+            ? { body: JSON.stringify({ id_produto: id }) }
+            : {}),
+        },
+      );
+      const json = await resposta.json();
+      if (!resposta.ok || !json.success) {
+        setMensagemFavorito(
+          json.message || "Não foi possível atualizar o favorito.",
+        );
+        return;
+      }
+
+      const atualizar = (atual: any[]) =>
+        atual.map((item) =>
+          Number(item.id_produto) === Number(id)
+            ? { ...item, favorito: !estavaFavorito }
+            : item,
+        );
+      setProdutos(atualizar);
+      setProdutosEmDestaque(atualizar);
+    } catch (erro) {
+      console.log("Erro ao alterar favorito:", erro);
+      setMensagemFavorito("Não foi possível conectar ao servidor.");
+    } finally {
+      bloqueiosFavoritos.current.delete(id);
+      setProcessandoFavoritos((atual) => atual.filter((item) => item !== id));
+    }
   }
 
   return (
@@ -211,13 +311,20 @@ export default function HomeScreen() {
             <View style={homeStyle.conteudo}>
               <View style={homeStyle.header}>
                 <View style={homeStyle.conteudoHeader}>
-                  <Text style={homeStyle.titulo}>Olá, {cliente?.nome_cliente ?? "Cliente"}!</Text>
+                  <Text style={homeStyle.titulo}>
+                    Olá, {cliente?.nome_cliente ?? "Cliente"}!
+                  </Text>
                   <View style={homeStyle.bordaPerfil}>
                     <Image
                       style={homeStyle.perfil}
-                      source={cliente?.foto_cliente
-                        ? {uri: `${IMAGEM}/${cliente?.foto_cliente}`}
-                        : {uri: `${IMAGEM}/cliente/user.png` || require("@/assets/images/img/icones/user.png")}
+                      source={
+                        cliente?.foto_cliente
+                          ? { uri: `${IMAGEM}/${cliente?.foto_cliente}` }
+                          : {
+                              uri:
+                                `${IMAGEM}/cliente/user.png` ||
+                                require("@/assets/images/img/icones/user.png"),
+                            }
                       }
                     />
                   </View>
@@ -227,6 +334,18 @@ export default function HomeScreen() {
                 </Text>
               </View>
               <View style={homeStyle.main}>
+                {mensagemFavorito ? (
+                  <Text
+                    style={{
+                      color: "#B42318",
+                      textAlign: "center",
+                      marginBottom: 10,
+                    }}
+                  >
+                    {mensagemFavorito}
+                  </Text>
+                ) : null}
+
                 <View style={homeStyle.buscarProduto}>
                   <TextInput
                     style={homeStyle.txtProduto}
@@ -320,6 +439,15 @@ export default function HomeScreen() {
                               style={homeStyle.btnFavorito}
                               onPress={() =>
                                 alterarFavorito(produto.id_produto)
+                              }
+                              disabled={processandoFavoritos.includes(
+                                produto.id_produto,
+                              )}
+                              accessibilityRole="button"
+                              accessibilityLabel={
+                                produto.favorito
+                                  ? "Remover dos favoritos"
+                                  : "Adicionar aos favoritos"
                               }
                             >
                               <Text style={homeStyle.iconeFavorito}>

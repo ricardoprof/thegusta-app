@@ -1,6 +1,7 @@
-import { useState, useEffect, useRef } from "react";
-import { router, useLocalSearchParams } from "expo-router";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { router, useLocalSearchParams, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   View,
   Text,
@@ -25,25 +26,13 @@ export default function CardapioScreen() {
   const [semImagem, setSemImagem] = useState<number[]>([]);
   const { categoria, busca: buscaParam } = useLocalSearchParams();
 
-  useEffect(() => {
-    async function carregarProdutos() {
-      try {
-        const resposta = await fetch(`${API}/produtos`);
-        const json = await resposta.json();
-        const produtosAtivos = json.data
-          .filter((produto: any) => produto.status_produto === "ATIVO")
-          .map((produto: any) => ({
-            ...produto,
-            favorito: false,
-          }))
-          .sort((a: any, b: any) => a.nome_produto - b.nome_produto);
-        setProdutos(produtosAtivos);
-      } catch (erro) {
-        console.log("Erro ao carregar os produtos", erro);
-      }
-    }
-    carregarProdutos();
+  const [mensagemFavorito, setMensagemFavorito] = useState("");
+  const [processandoFavoritos, setProcessandoFavoritos] = useState<number[]>(
+    [],
+  );
+  const bloqueiosFavoritos = useRef<Set<number>>(new Set());
 
+  useEffect(() => {
     async function carregarCategorias() {
       try {
         const resposta = await fetch(`${API}/categorias`);
@@ -58,19 +47,76 @@ export default function CardapioScreen() {
     }
     carregarCategorias();
   }, []);
-  
+
+  const carregarProdutosEFavoritos = useCallback(async () => {
+    try {
+      const token = await AsyncStorage.getItem("token");
+      const respostaProdutos = await fetch(`${API}/produtos`);
+      const jsonProdutos = await respostaProdutos.json();
+      if (
+        !respostaProdutos.ok ||
+        !jsonProdutos.success ||
+        !Array.isArray(jsonProdutos.data)
+      ) {
+        setMensagemFavorito("Não foi possível carregar os produtos.");
+        return;
+      }
+
+      let idsFavoritos = new Set<number>();
+      if (token) {
+        const respostaFavoritos = await fetch(`${API}/favoritos`, {
+          headers: {
+            Accept: "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        const jsonFavoritos = await respostaFavoritos.json();
+        if (
+          respostaFavoritos.ok &&
+          jsonFavoritos.success &&
+          Array.isArray(jsonFavoritos.data)
+        ) {
+          idsFavoritos = new Set<number>(
+            jsonFavoritos.data.map((item: any) => Number(item.id_produto)),
+          );
+        } else {
+          setMensagemFavorito("Não foi possível carregar seus favoritos.");
+        }
+      }
+
+      const produtosAtivos = jsonProdutos.data
+        .filter((produto: any) => produto.status_produto === "ATIVO")
+        .map((produto: any) => ({
+          ...produto,
+          favorito: idsFavoritos.has(Number(produto.id_produto)),
+        }))
+        .sort((a: any, b: any) =>
+          a.nome_produto.localeCompare(b.nome_produto, "pt-BR"),
+        );
+      setProdutos(produtosAtivos);
+    } catch (erro) {
+      console.log("Erro ao carregar produtos/favoritos:", erro);
+      setMensagemFavorito("Não foi possível conectar ao servidor.");
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      carregarProdutosEFavoritos();
+    }, [carregarProdutosEFavoritos]),
+  );
+
   //Estrutura referente caixa de texto Buscar Produtos
   const [textoBusca, setTextoBusca] = useState("");
   const [busca, setBusca] = useState("");
-  
+
   useEffect(() => {
-    if (buscaParam){
+    if (buscaParam) {
       const texto = String(buscaParam);
       setTextoBusca(texto);
       setBusca(texto);
     }
-  },[buscaParam]);
-
+  }, [buscaParam]);
 
   const produtosFiltrados = produtos.filter((produto) =>
     produto.nome_produto.toLowerCase().includes(busca.trim().toLowerCase()),
@@ -106,14 +152,59 @@ export default function CardapioScreen() {
     return () => clearInterval(intervalo);
   }, [categoria, categorias, produtos]);
 
-  function alterarFavorito(id: number) {
-    setProdutos((produtoFavorito) =>
-      produtoFavorito.map((produto) =>
-        produto.id_produto === id
-          ? { ...produto, favorito: !produto.favorito }
-          : produto,
-      ),
-    );
+  async function alterarFavorito(id: number) {
+    if (bloqueiosFavoritos.current.has(id)) return;
+    const produto = produtos.find((item) => item.id_produto === id);
+    if (!produto) return;
+
+    const token = await AsyncStorage.getItem("token");
+    if (!token) {
+      setMensagemFavorito("Faça login para salvar seus favoritos.");
+      return;
+    }
+
+    bloqueiosFavoritos.current.add(id);
+    setProcessandoFavoritos((atual) => [...atual, id]);
+    setMensagemFavorito("");
+
+    try {
+      const estavaFavorito = Boolean(produto.favorito);
+      const resposta = await fetch(
+        estavaFavorito ? `${API}/favoritos/${id}` : `${API}/favoritos`,
+        {
+          method: estavaFavorito ? "DELETE" : "POST",
+          headers: {
+            Accept: "application/json",
+            Authorization: `Bearer ${token}`,
+            ...(!estavaFavorito ? { "Content-Type": "application/json" } : {}),
+          },
+          ...(!estavaFavorito
+            ? { body: JSON.stringify({ id_produto: id }) }
+            : {}),
+        },
+      );
+      const json = await resposta.json();
+      if (!resposta.ok || !json.success) {
+        setMensagemFavorito(
+          json.message || "Não foi possível atualizar o favorito.",
+        );
+        return;
+      }
+
+      setProdutos((atual) =>
+        atual.map((item) =>
+          item.id_produto === id
+            ? { ...item, favorito: !estavaFavorito }
+            : item,
+        ),
+      );
+    } catch (erro) {
+      console.log("Erro ao alterar favorito:", erro);
+      setMensagemFavorito("Não foi possível conectar ao servidor.");
+    } finally {
+      bloqueiosFavoritos.current.delete(id);
+      setProcessandoFavoritos((atual) => atual.filter((item) => item !== id));
+    }
   }
 
   function irParaCategoria(idCategoria: number) {
@@ -156,6 +247,18 @@ export default function CardapioScreen() {
               </View>
 
               <View style={cardapioStyle.main}>
+                {mensagemFavorito ? (
+                  <Text
+                    style={{
+                      color: "#B42318",
+                      textAlign: "center",
+                      marginBottom: 10,
+                    }}
+                  >
+                    {mensagemFavorito}
+                  </Text>
+                ) : null}
+
                 <View style={cardapioStyle.buscarProduto}>
                   <TextInput
                     style={cardapioStyle.txtProduto}
@@ -241,6 +344,15 @@ export default function CardapioScreen() {
                                   onPress={() =>
                                     alterarFavorito(produto.id_produto)
                                   }
+                                  disabled={processandoFavoritos.includes(
+                                    produto.id_produto,
+                                  )}
+                                  accessibilityRole="button"
+                                  accessibilityLabel={
+                                    produto.favorito
+                                      ? "Remover dos favoritos"
+                                      : "Adicionar aos favoritos"
+                                  }
                                 >
                                   <Text style={cardapioStyle.iconeFavorito}>
                                     {produto.favorito ? "★" : "☆"}
@@ -266,9 +378,9 @@ export default function CardapioScreen() {
                                   onPress={() =>
                                     router.push({
                                       pathname: "/detalhe-produto",
-                                      params:{
-                                        slug: produto.slug_produto
-                                      }
+                                      params: {
+                                        slug: produto.slug_produto,
+                                      },
                                     })
                                   }
                                 >
