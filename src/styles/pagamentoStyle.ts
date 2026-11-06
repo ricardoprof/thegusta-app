@@ -132,12 +132,11 @@ const pagamentoStyle = StyleSheet.create({
     borderBottomLeftRadius: 10,
     borderColor: cores.laranja,
     borderWidth: 2,
-    backgroundColor: cores.laranja,
     alignItems: "center",
     justifyContent: "center",
   },
   txtEntrega: {
-    fontFamily: fontes.negrito,
+    fontFamily: fontes.comum,
     color: cores.preto,
   },
   btnRetira: {
@@ -147,7 +146,6 @@ const pagamentoStyle = StyleSheet.create({
     borderBottomRightRadius: 10,
     borderColor: cores.laranja,
     borderWidth: 2,
-    backgroundColor: cores.branco,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -155,7 +153,16 @@ const pagamentoStyle = StyleSheet.create({
     fontFamily: fontes.comum,
     color: cores.preto,
   },
-  camposDataHora:{
+  botaoAtivo: {
+    backgroundColor: cores.laranja,
+    fontFamily: fontes.negrito,
+  },
+
+  botaoInativo: {
+    backgroundColor: cores.branco,
+    fontFamily: fontes.comum,
+  },
+  camposDataHora: {
     flex: 1,
   },
   txtDataHora: {
@@ -219,12 +226,11 @@ const pagamentoStyle = StyleSheet.create({
     borderBottomLeftRadius: 10,
     borderColor: cores.laranja,
     borderWidth: 2,
-    backgroundColor: cores.laranja,
     alignItems: "center",
     justifyContent: "center",
   },
   txtPix: {
-    fontFamily: fontes.negrito,
+    fontFamily: fontes.comum,
     color: cores.preto,
   },
   btnCartao: {
@@ -232,7 +238,6 @@ const pagamentoStyle = StyleSheet.create({
     height: "100%",
     borderColor: cores.laranja,
     borderWidth: 2,
-    backgroundColor: cores.branco,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -247,7 +252,6 @@ const pagamentoStyle = StyleSheet.create({
     borderBottomRightRadius: 10,
     borderColor: cores.laranja,
     borderWidth: 2,
-    backgroundColor: cores.branco,
     alignItems: "center",
     justifyContent: "center",
   },

@@ -102,12 +102,10 @@ export default function PagamentoScreen() {
       }
       const lista: Endereco[] = Array.isArray(json.data) ? json.data : [];
       setEnderecos(lista);
-      setIdEndereco((atual) =>
-        lista.some((e) => e.id_endereco === atual)
-          ? atual
-          : (lista.find((e) => e.principal_endereco === "SIM")?.id_endereco ??
-            lista[0]?.id_endereco ??
-            null),
+      setIdEndereco(
+        lista.find((e) => e.principal_endereco === "SIM")?.id_endereco ??
+          lista[0]?.id_endereco ??
+          null,
       );
     } catch (e) {
       setErro(e instanceof Error ? e.message : "Erro ao carregar pagamento.");
@@ -306,24 +304,7 @@ export default function PagamentoScreen() {
                     </Text> */}
                   </View>
                   <Pressable
-                    onPress={() => {
-                      if (enderecos.length === 0) {
-                        Alert.alert("Endereço", "Nenhum endereço cadastrado.");
-                        return;
-                      }
-                      Alert.alert(
-                        "Selecionar endereço",
-                        "Escolha um endereço:",
-                        [
-                          ...enderecos.map((e) => ({
-                            text: `${e.nome_endereco} - ${e.endereco}, ${e.numero}`,
-                            onPress: () => setIdEndereco(e.id_endereco),
-                          })),
-                          { text: "Cancelar", style: "cancel" },
-                        ],
-                      );
-                    }}
-                  >
+                    onPress={() => router.push("/enderecos")}>
                     <Text style={pagamentoStyle.txtAlterar}>Alterar {">"}</Text>
                   </Pressable>
                 </View>
@@ -340,7 +321,12 @@ export default function PagamentoScreen() {
                     </Text>
                     <View style={pagamentoStyle.btnEntregaRetira}>
                       <Pressable
-                        style={pagamentoStyle.btnEntrega}
+                        style={[
+                          pagamentoStyle.btnEntrega,
+                          entrega === "SIM"
+                            ? pagamentoStyle.botaoAtivo
+                            : pagamentoStyle.botaoInativo,
+                        ]}
                         onPress={() => setEntrega("SIM")}
                       >
                         <Text style={pagamentoStyle.txtEntrega}>
@@ -348,7 +334,12 @@ export default function PagamentoScreen() {
                         </Text>
                       </Pressable>
                       <Pressable
-                        style={pagamentoStyle.btnRetira}
+                        style={[
+                          pagamentoStyle.btnRetira,
+                          entrega === "NAO"
+                            ? pagamentoStyle.botaoAtivo
+                            : pagamentoStyle.botaoInativo,
+                        ]}
                         onPress={() => setEntrega("NAO")}
                       >
                         <Text style={pagamentoStyle.txtRetira}>
@@ -409,7 +400,12 @@ export default function PagamentoScreen() {
                     </Text>
                     <View style={pagamentoStyle.btnPagamento}>
                       <Pressable
-                        style={pagamentoStyle.btnPix}
+                        style={[
+                          pagamentoStyle.btnPix,
+                          formaPagamento === "PIX"
+                            ? pagamentoStyle.botaoAtivo
+                            : pagamentoStyle.botaoInativo,
+                        ]}
                         onPress={() => setFormaPagamento("PIX")}
                       >
                         <Text style={pagamentoStyle.txtPix}>
@@ -417,7 +413,12 @@ export default function PagamentoScreen() {
                         </Text>
                       </Pressable>
                       <Pressable
-                        style={pagamentoStyle.btnCartao}
+                        style={[
+                          pagamentoStyle.btnCartao,
+                          formaPagamento === "CARTAO"
+                            ? pagamentoStyle.botaoAtivo
+                            : pagamentoStyle.botaoInativo,
+                        ]}
                         onPress={() => setFormaPagamento("CARTAO")}
                       >
                         <Text style={pagamentoStyle.txtCartao}>
@@ -425,7 +426,12 @@ export default function PagamentoScreen() {
                         </Text>
                       </Pressable>
                       <Pressable
-                        style={pagamentoStyle.btnDinheiro}
+                        style={[
+                          pagamentoStyle.btnDinheiro,
+                          formaPagamento === "DINHEIRO"
+                            ? pagamentoStyle.botaoAtivo
+                            : pagamentoStyle.botaoInativo,
+                        ]}
                         onPress={() => setFormaPagamento("DINHEIRO")}
                       >
                         <Text style={pagamentoStyle.txtDinheiro}>

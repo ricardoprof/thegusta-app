@@ -156,8 +156,6 @@ const editarEnderecoStyle = StyleSheet.create({
   btnSalvar: {
     width: "80%",
     height: 30,
-    position: 'fixed',
-    bottom: 50,
     backgroundColor: cores.laranja,
 
     alignSelf: "center",
@@ -167,7 +165,7 @@ const editarEnderecoStyle = StyleSheet.create({
 
     borderRadius: 10,
 
-    marginTop: 2,
+    marginTop: 20,
     marginBottom: 5,
   },
 
@@ -180,8 +178,6 @@ const editarEnderecoStyle = StyleSheet.create({
   btnCancelar: {
     width: "50%",
     height: 30,
-    position: 'fixed',
-    bottom: 10,
     backgroundColor: cores.laranjaClaro,
 
     alignSelf: "center",
@@ -193,7 +189,7 @@ const editarEnderecoStyle = StyleSheet.create({
     borderColor: cores.laranja,
     borderRadius: 10,
 
-    marginTop: 2,
+    marginTop: 10,
     marginBottom: 5,
   },
 

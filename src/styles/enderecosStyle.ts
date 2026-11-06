@@ -165,6 +165,23 @@ const enderecosStyle = StyleSheet.create({
     fontFamily: fontes.comum,
     fontSize: 15,
   },
+  btnCadastrar:{
+    width: 200,
+    height: 30,
+    borderRadius: 5,
+    borderColor: cores.laranja,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    margin: 'auto',
+    marginTop: 10,
+    backgroundColor: cores.laranja
+  },
+  txtCadastrar:{
+    color: cores.preto,
+    fontFamily: fontes.comum,
+    fontSize: 15,
+  },
 });
 
 export default enderecosStyle;

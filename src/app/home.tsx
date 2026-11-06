@@ -475,7 +475,12 @@ export default function HomeScreen() {
                             <Pressable
                               style={homeStyle.btnAdicionar}
                               onPress={() =>
-                                router.navigate("/detalhe-produto")
+                                router.push({
+                                  pathname: "/detalhe-produto",
+                                  params: {
+                                    slug: produto.slug_produto,
+                                  },
+                                })
                               }
                             >
                               <Image
